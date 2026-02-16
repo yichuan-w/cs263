@@ -37,7 +37,7 @@ constructing a term. By hovering over `_`, you will see the current logical
 context. -/
 
 @[autogradedDef 1]
-def B : (α → β) → (γ → α) → γ → β :=
+def B : (α → β) → (γ → α) → γ → β := 
   fun f g c ↦ f (g c)
 
 @[autogradedDef 1]

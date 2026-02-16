@@ -27,26 +27,47 @@ Think about the similarity to the type inhabitation problems of HW1! -/
 
 @[autogradedProof 1] theorem B (a b c : Prop) :
   (a → b) → (c → a) → c → b := by
-  sorry
+  intro hab hca hc
+  apply hab
+  apply hca
+  exact hc
 
 @[autogradedProof 1] theorem S (a b c : Prop) :
   (a → b → c) → (a → b) → a → c := by
-  sorry
+  intro habc hab ha
+  apply habc
+  exact ha
+  apply hab
+  exact ha
 
 @[autogradedProof 1] theorem more_nonsense (a b c : Prop) :
   (c → (a → b) → a) → c → b → a := by
-  sorry
+  intro hcaba hc hb
+  apply hcaba
+  exact hc
+  intro ha
+  exact hb
 
 @[autogradedProof 1]
 theorem evenMoreNonsense (a b c: Prop):
   (a → b) → (c → a) → c → b := by
-  sorry
+  intro hab hca hc
+  apply hab
+  apply hca
+  exact hc
 
 
 @[autogradedProof 2]
 theorem weak_peirce (a b : Prop) :
     ((((a → b) → a) → a) → b) → b := by
-  sorry
+  intro h
+  apply h
+  intro haba
+  apply haba
+  intro ha
+  apply h
+  intro _
+  exact ha
 
 end Q1_Simple_Proofs_Backwards
 
@@ -75,7 +96,10 @@ Hints:
 
 @[autogradedProof 1] theorem about_Impl (a b : Prop) :
   ¬ a ∨ b → a → b := by
-  sorry
+  intro hnab ha
+  cases hnab with
+  | inl hna => exact False.elim (hna ha)
+  | inr hb => exact hb
 
 
 /- ### 2.2 (3 points).
@@ -124,7 +148,16 @@ Hints:
 
 @[autogradedProof 3, validAxioms #[Quot.sound, propext, funext]]
 theorem EM_of_DN: DoubleNegation → ExcludedMiddle := by
-  sorry
+  rw [DoubleNegation, ExcludedMiddle]
+  intro hdn a
+  apply hdn
+  intro hnem
+  apply hnem
+  right
+  intro ha
+  apply hnem
+  left
+  exact ha
 
 /- ### 2.3 (2 points).
 
@@ -148,6 +181,14 @@ axiom Peirce_of_EM : ExcludedMiddle → Peirce
 axiom DN_of_Peirce : Peirce → DoubleNegation
 
 -- enter your solution here
+
+@[autogradedProof 1]
+theorem DN_of_EM : ExcludedMiddle → DoubleNegation :=
+  fun hem => DN_of_Peirce (Peirce_of_EM hem)
+
+@[autogradedProof 1]
+theorem Peirce_of_DN : DoubleNegation → Peirce :=
+  fun hdn => Peirce_of_EM (EM_of_DN hdn)
 
 end Q2_Logical_Connectives
 
@@ -187,11 +228,12 @@ My proofs are short, 2 tactics each.
 
 @[autogradedProof 1, validAxioms #[LoVe.BackwardProofs.symmtrans]]
 theorem my_symm (h : b = a) : a = b := by
-  sorry
+  apply symmtrans rfl h
 
 @[autogradedProof 1, validAxioms #[LoVe.BackwardProofs.symmtrans]]
 theorem my_trans (h1 : a = b) (h2 : b = c) : a = c := by
-  sorry
+  apply symmtrans h1
+  apply symmtrans rfl h2
 
 end
 end Q3_Equality
@@ -277,7 +319,14 @@ My proof is about 5ish tactics for each direction,
 @[autogradedProof 3]
 theorem exists_forall {α : Type} (p: α → Prop):
   ¬(∃x : α, p x) ↔ ∀y : α, ¬ p y := by
-  sorry
+  constructor
+  · intro hnex y hpy
+    apply hnex
+    exact Exists.intro y hpy
+  · intro hforall hex
+    apply Exists.elim hex
+    intro x hpx
+    exact hforall x hpx
 
 end Q4_Exists
 
@@ -333,7 +382,22 @@ definition, you can use `rw`.) -/
   validAxioms #[LoVe.BackwardProofs.fermats_last_theorem, Quot.sound, propext, funext, Classical.choice]]
 theorem pythagorean_triple_not_all_squares (a b c : ℕ) :
   IsPythagoreanTriple a b c → ¬(IsSquare a ∧ IsSquare b ∧ IsSquare c) := by
-  sorry
+  rw [IsPythagoreanTriple, IsSquare, IsSquare, IsSquare]
+  intro hpyth hsquares
+  have ha := hsquares.left
+  have hb := hsquares.right.left
+  have hc := hsquares.right.right
+  apply Exists.elim ha
+  intro ua heqa
+  apply Exists.elim hb
+  intro ub heqb
+  apply Exists.elim hc
+  intro uc heqc
+  rw [heqa, heqb, heqc] at hpyth
+  have h4 := square_square ua ub uc hpyth
+  apply fermats_last_theorem ua ub 4
+  · decide
+  · exact Exists.intro uc h4
 
 
 end Q5_Pythagorean_Triples
@@ -361,7 +425,12 @@ def sum : List ℕ → ℕ
 @[autogradedProof 2]
 theorem sum_snoc (ms : List ℕ) (n : ℕ) :
   sum (snoc ms n) = n + sum ms := by
-  sorry
+  induction ms with
+  | nil => rfl
+  | cons m ms ih =>
+    simp only [snoc, sum]
+    rw [ih]
+    ac_rfl
 
 -- you may want to check out the definition of `List.append` in the Lean library
 -- to figure out what to induct on
@@ -370,13 +439,22 @@ theorem sum_snoc (ms : List ℕ) (n : ℕ) :
 @[autogradedProof 2]
 theorem sum_append (ms ns : List ℕ) :
   sum (ms ++ ns) = sum ms + sum ns := by
-  sorry
+  induction ms with
+  | nil => simp only [List.nil_append, sum, Nat.zero_add]
+  | cons m ms ih =>
+    simp only [List.cons_append, sum]
+    rw [ih]
+    ac_rfl
 
 @[autogradedProof 2]
 -- hint: use a theorem that you proved earlier in this homework
 theorem sum_reverse (ns : List ℕ) :
   sum (reverse ns) = sum ns := by
-  sorry
+  induction ns with
+  | nil => rfl
+  | cons n ns ih =>
+    simp only [reverse, sum]
+    rw [sum_snoc, ih]
 
 end Q6_List_Functions
 
