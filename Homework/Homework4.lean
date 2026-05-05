@@ -72,43 +72,73 @@ inductive Eval : Env → Exp → Val → Prop
      `add` evaluates to the sum of the two arguments.
      `le x y` evaluates to the boolean `x ≤ y`.
   -/
-  
+  | add (ρ : Env) (e₁ e₂ : Exp) (n₁ n₂ : ℕ) :
+      Eval ρ e₁ (Val.nat n₁) →
+      Eval ρ e₂ (Val.nat n₂) →
+      Eval ρ (Exp.add e₁ e₂) (Val.nat (n₁ + n₂))
+  | le (ρ : Env) (e₁ e₂ : Exp) (n₁ n₂ : ℕ) :
+      Eval ρ e₁ (Val.nat n₁) →
+      Eval ρ e₂ (Val.nat n₂) →
+      Eval ρ (Exp.le e₁ e₂) (Val.bool (n₁ ≤ n₂))
 
 /- Inversion lemmas for Eval -/
 
 @[simp, autogradedProof 1]
 theorem Eval_nat {ρ : Env} {n : ℕ} {v : Val} :
     Eval ρ (Exp.nat n) v ↔ v = Val.nat n := by
-  sorry
+  constructor
+  · intro h; cases h; rfl
+  · rintro rfl; exact Eval.nat _ _
 
 @[simp, autogradedProof 1]
 theorem Eval_bool {ρ : Env} {b : Bool} {v : Val} :
     Eval ρ (Exp.bool b) v ↔ v = Val.bool b := by
-  sorry
+  constructor
+  · intro h; cases h; rfl
+  · rintro rfl; exact Eval.bool _ _
 
 @[simp, autogradedProof 1]
 theorem Eval_var {ρ : Env} {x : String} {v : Val} :
     Eval ρ (Exp.var x) v ↔ ρ x = some v := by
-  sorry
+  constructor
+  · intro h; cases h; assumption
+  · intro h; exact Eval.var _ _ _ h
 
 @[simp, autogradedProof 1]
 theorem Eval_add {ρ : Env} {e₁ e₂ : Exp} {v : Val} :
     Eval ρ (Exp.add e₁ e₂) v ↔
     (∃n₁ n₂, Eval ρ e₁ (Val.nat n₁) ∧ Eval ρ e₂ (Val.nat n₂) ∧ v = Val.nat (n₁ + n₂)) := by
-  sorry
+  constructor
+  · intro h
+    cases h with
+    | add _ _ n₁ n₂ h₁ h₂ => exact ⟨n₁, n₂, h₁, h₂, rfl⟩
+  · rintro ⟨n₁, n₂, h₁, h₂, rfl⟩
+    exact Eval.add _ _ _ _ _ h₁ h₂
 
 @[simp, autogradedProof 1]
 theorem Eval_le {ρ : Env} {e₁ e₂ : Exp} {v : Val} :
     Eval ρ (Exp.le e₁ e₂) v ↔
     (∃n₁ n₂, Eval ρ e₁ (Val.nat n₁) ∧ Eval ρ e₂ (Val.nat n₂) ∧ v = Val.bool (n₁ ≤ n₂)) := by
-  sorry
+  constructor
+  · intro h
+    cases h with
+    | le _ _ n₁ n₂ h₁ h₂ => exact ⟨n₁, n₂, h₁, h₂, rfl⟩
+  · rintro ⟨n₁, n₂, h₁, h₂, rfl⟩
+    exact Eval.le _ _ _ _ _ h₁ h₂
 
 @[simp, autogradedProof 1]
 theorem Eval_ite {ρ : Env} {e₁ e₂ e₃ : Exp} {v : Val} :
     Eval ρ (Exp.ite e₁ e₂ e₃) v ↔
     (Eval ρ e₁ (Val.bool true) ∧ Eval ρ e₂ v) ∨
     (Eval ρ e₁ (Val.bool false) ∧ Eval ρ e₃ v) := by
-  sorry
+  constructor
+  · intro h
+    cases h with
+    | ite_true _ _ _ _ h₁ h₂ => exact Or.inl ⟨h₁, h₂⟩
+    | ite_false _ _ _ _ h₁ h₃ => exact Or.inr ⟨h₁, h₃⟩
+  · rintro (⟨h₁, h₂⟩ | ⟨h₁, h₃⟩)
+    · exact Eval.ite_true _ _ _ _ _ h₁ h₂
+    · exact Eval.ite_false _ _ _ _ _ h₁ h₃
 
 -- with all those inversion lemmas in place, we can easily evaluate `exp7or9`
 example: Eval (emptyEnv.update "cond" (Val.bool true))  exp7or9 (Val.nat 7) := by simp; rfl
@@ -137,12 +167,16 @@ inductive ValHasType : Val → Ty → Prop
 @[simp, autogradedProof 1]
 theorem ValHasType_nat_inv (v : Val) :
     ValHasType v Ty.nat ↔ ∃ n, v = Val.nat n := by
-  sorry
+  constructor
+  · intro h; cases h; exact ⟨_, rfl⟩
+  · rintro ⟨n, rfl⟩; exact ValHasType.nat _
 
 @[simp, autogradedProof 1]
 theorem ValHasType_bool_inv (v : Val) :
     ValHasType v Ty.bool ↔ ∃ b, v = Val.bool b := by
-  sorry
+  constructor
+  · intro h; cases h; exact ⟨_, rfl⟩
+  · rintro ⟨b, rfl⟩; exact ValHasType.bool _
 
 /-- Typing relation for expressions.
 
@@ -168,7 +202,14 @@ inductive HasType : Ctx → Exp → Ty → Prop
      `add` has type `nat` if both subexpressions have type `nat`.
      `le` has type `bool` if both subexpressions have type `nat`.
   -/
-  
+  | add (Γ : Ctx) (e₁ e₂ : Exp) :
+      HasType Γ e₁ Ty.nat →
+      HasType Γ e₂ Ty.nat →
+      HasType Γ (Exp.add e₁ e₂) Ty.nat
+  | le (Γ : Ctx) (e₁ e₂ : Exp) :
+      HasType Γ e₁ Ty.nat →
+      HasType Γ e₂ Ty.nat →
+      HasType Γ (Exp.le e₁ e₂) Ty.bool
 
 
 /- 5.1 (2 points). Prove inversion lemmas for typing. -/
@@ -176,36 +217,51 @@ inductive HasType : Ctx → Exp → Ty → Prop
 @[simp, autogradedProof 1]
 theorem HasType_nat_inv {Γ : Ctx} {n : ℕ} {τ : Ty} :
     HasType Γ (Exp.nat n) τ ↔ τ = Ty.nat := by
-  sorry
+  constructor
+  · intro h; cases h; rfl
+  · rintro rfl; exact HasType.nat _ _
 
 @[simp, autogradedProof 1]
 theorem HasType_bool_inv {Γ : Ctx} {b : Bool} {τ : Ty} :
     HasType Γ (Exp.bool b) τ ↔ τ = Ty.bool := by
-  sorry
+  constructor
+  · intro h; cases h; rfl
+  · rintro rfl; exact HasType.bool _ _
 
 @[simp, autogradedProof 1]
 theorem HasType_var_inv {Γ : Ctx} {x : String} {τ : Ty} :
     HasType Γ (Exp.var x) τ ↔ Γ x = some τ := by
-  sorry
+  constructor
+  · intro h; cases h; assumption
+  · intro h; exact HasType.var _ _ _ h
 
 @[simp, autogradedProof 1]
 theorem HasType_add_inv {Γ : Ctx} {e₁ e₂ : Exp} :
     HasType Γ (Exp.add e₁ e₂) Ty.nat ↔
     HasType Γ e₁ Ty.nat ∧ HasType Γ e₂ Ty.nat := by
-  sorry
+  constructor
+  · intro h; cases h with
+    | add _ _ h₁ h₂ => exact ⟨h₁, h₂⟩
+  · intro ⟨h₁, h₂⟩; exact HasType.add _ _ _ h₁ h₂
 
 
 @[simp, autogradedProof 1]
 theorem HasType_le_inv {Γ : Ctx} {e₁ e₂ : Exp} :
     HasType Γ (Exp.le e₁ e₂) Ty.bool ↔
     HasType Γ e₁ Ty.nat ∧ HasType Γ e₂ Ty.nat := by
-  sorry
+  constructor
+  · intro h; cases h with
+    | le _ _ h₁ h₂ => exact ⟨h₁, h₂⟩
+  · intro ⟨h₁, h₂⟩; exact HasType.le _ _ _ h₁ h₂
 
 @[simp, autogradedProof 1]
 theorem HasType_ite_inv {Γ : Ctx} {e₁ e₂ e₃ : Exp} {τ : Ty} :
     HasType Γ (Exp.ite e₁ e₂ e₃) τ ↔
     HasType Γ e₁ Ty.bool ∧ HasType Γ e₂ τ ∧ HasType Γ e₃ τ := by
-  sorry
+  constructor
+  · intro h; cases h with
+    | ite _ _ _ _ h₁ h₂ h₃ => exact ⟨h₁, h₂, h₃⟩
+  · intro ⟨h₁, h₂, h₃⟩; exact HasType.ite _ _ _ _ _ h₁ h₂ h₃
 
 -- with these inversion lemmas, we can easily check that `exp7or9` has type `nat`
 -- when the variable `cond` has type `bool`
@@ -237,15 +293,36 @@ theorem Eval_type_sound {Γ : Ctx} {ρ : Env} {e : Exp} {τ : Ty} :
   induction hty with
   | nat n => simp
   | bool b => simp
-  | var x τ _ =>
-  sorry
-  | ite e₁ e₂ e₃ τ _ _ _ _ _ _ =>
-  sorry
-  | add e₁ e₂ _ _ _ _ =>
-  sorry
-  | le e₁ e₂ _ _ _ _ =>
-    -- you may want to use `simp [Nat.lt_or_ge]` at some point in this case
-  sorry
+  | var x τ hlookup =>
+    obtain ⟨v, hρ, hvt⟩ := hmod x τ hlookup
+    exact ⟨v, Eval.var _ _ _ hρ, hvt⟩
+  | ite e₁ e₂ e₃ τ _ _ _ ih₁ ih₂ ih₃ =>
+    obtain ⟨v₁, hev₁, hvt₁⟩ := ih₁
+    cases hvt₁ with
+    | bool b =>
+      cases b with
+      | true =>
+        obtain ⟨v₂, hev₂, hvt₂⟩ := ih₂
+        exact ⟨v₂, Eval.ite_true _ _ _ _ _ hev₁ hev₂, hvt₂⟩
+      | false =>
+        obtain ⟨v₃, hev₃, hvt₃⟩ := ih₃
+        exact ⟨v₃, Eval.ite_false _ _ _ _ _ hev₁ hev₃, hvt₃⟩
+  | add e₁ e₂ _ _ ih₁ ih₂ =>
+    obtain ⟨v₁, hev₁, hvt₁⟩ := ih₁
+    obtain ⟨v₂, hev₂, hvt₂⟩ := ih₂
+    cases hvt₁ with
+    | nat n₁ =>
+      cases hvt₂ with
+      | nat n₂ =>
+        exact ⟨Val.nat (n₁ + n₂), Eval.add _ _ _ _ _ hev₁ hev₂, ValHasType.nat _⟩
+  | le e₁ e₂ _ _ ih₁ ih₂ =>
+    obtain ⟨v₁, hev₁, hvt₁⟩ := ih₁
+    obtain ⟨v₂, hev₂, hvt₂⟩ := ih₂
+    cases hvt₁ with
+    | nat n₁ =>
+      cases hvt₂ with
+      | nat n₂ =>
+        exact ⟨Val.bool (n₁ ≤ n₂), Eval.le _ _ _ _ _ hev₁ hev₂, ValHasType.bool _⟩
 
 /-- Our type system (like many!) is sound but incomplete: there are some expressions
     that evaluate to values but are not typable. Here's a hint: construct an expression
@@ -261,7 +338,9 @@ theorem HasType_Incomplete :
    Eval emptyEnv e v ∧
    ¬∃τ, HasType emptyCtx e τ :=
   by
-  sorry
+  refine ⟨Exp.ite (Exp.bool true) (Exp.nat 0) (Exp.bool false), Val.nat 0, ?_, ?_⟩
+  · simp
+  · intro ⟨τ, h⟩; simp at h; obtain ⟨rfl, h₂⟩ := h; nomatch h₂
 
 end Q1_Types
 
@@ -282,17 +361,17 @@ abbrev ListSetEquiv {α : Type} (xs ys : List α) : Prop :=
 @[autogradedProof 1]
 theorem ListSetEquiv_refl {α : Type} (xs : List α) :
     ListSetEquiv xs xs := by
-  sorry
+  intro a; exact Iff.rfl
 
 @[autogradedProof 1]
 theorem ListSetEquiv_symm {α : Type} {xs ys : List α} :
     ListSetEquiv xs ys → ListSetEquiv ys xs := by
-  sorry
+  intro h a; exact (h a).symm
 
 @[autogradedProof 1]
 theorem ListSetEquiv_trans {α : Type} {xs ys zs : List α} :
     ListSetEquiv xs ys → ListSetEquiv ys zs → ListSetEquiv xs zs := by
-  sorry
+  intro h₁ h₂ a; exact (h₁ a).trans (h₂ a)
 
 instance ListSetoid (α : Type) : Setoid (List α) where
   r := ListSetEquiv
@@ -307,18 +386,22 @@ abbrev FinSet (α : Type) : Type :=
 
 @[autogradedDef 1]
 def finsetEmpty {α : Type} : FinSet α :=
-  sorry
+  ⟦[]⟧
 
 @[autogradedDef 1]
 def finsetSingleton {α : Type} (a : α) : FinSet α :=
-  sorry
+  ⟦[a]⟧
 
 @[autogradedDef 1]
 def finsetUnion {α : Type} (x y : FinSet α) : FinSet α :=
   Quotient.liftOn₂ x y
     (fun xs ys => ⟦xs ++ ys⟧)
     (by
-      sorry
+      intro a₁ a₂ b₁ b₂ h₁ h₂
+      apply Quotient.sound
+      intro c
+      simp only [List.mem_append]
+      exact or_congr (h₁ c) (h₂ c)
     )
 
 instance FinSet.instZero {α : Type} : Zero (FinSet α) :=
@@ -336,23 +419,32 @@ theorem finset_zero_add {α : Type} (x : FinSet α) :
   -- this intro is useful to "see through" the definition of ≈ and get to
   -- to the underlying ListSetEquiv relation
   intro b
-  sorry
+  simp
 
 @[autogradedProof 1]
 theorem finset_add_comm {α : Type} (x y : FinSet α) :
     x + y = y + x := by
-  sorry
+  induction x using Quotient.inductionOn
+  induction y using Quotient.inductionOn
+  apply Quotient.sound
+  intro a
+  simp [List.mem_append, or_comm]
 
 @[autogradedProof 1]
 theorem finset_add_assoc {α : Type} (x y z : FinSet α) :
     (x + y) + z = x + (y + z) := by
-  sorry
+  induction x using Quotient.inductionOn
+  induction y using Quotient.inductionOn
+  induction z using Quotient.inductionOn
+  apply Quotient.sound
+  intro a
+  simp [List.mem_append]
 
 -- this one should be easy given the previous couple of theorems
 @[autogradedProof 1]
 theorem finset_add_zero {α : Type} (x : FinSet α) :
     x + 0 = x := by
-  sorry
+  rw [finset_add_comm, finset_zero_add]
 
 instance FinSet.instAddCommMonoid {α : Type} : AddCommMonoid (FinSet α) :=
 {

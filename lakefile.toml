@@ -4,6 +4,9 @@ defaultTargets = ["LoVe"]
 [[lean_lib]]
 name = "LoVe"
 
+[[lean_lib]]
+name = "Homework"
+
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
